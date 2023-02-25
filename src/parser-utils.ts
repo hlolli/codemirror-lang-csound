@@ -1,11 +1,19 @@
 import { EditorView } from '@codemirror/view';
 import { SyntaxNode } from '@lezer/common';
+import * as builtinOpcodesStar from './builtin-opcodes.json';
 
-const CHANGEME: any[] = [];
+export const builtinOpcodes: Record<
+  string,
+  { synopsis: string[]; short_desc: string }
+> = builtinOpcodesStar;
 
 function tokenExists(opname: string) {
-  return CHANGEME.some((value) => value.opname === opname);
+  return builtinOpcodes[opname] !== undefined;
 }
+
+export const isGlobalConstant = (token: string) => {
+  return ['sr', 'kr', 'ksmps', '0dbfs', 'nchnls', 'nchnls_i'].includes(token);
+};
 
 function resolveOpcodeStatement(view: EditorView, node: SyntaxNode) {
   let operator;
