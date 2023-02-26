@@ -10,7 +10,7 @@ import { Tag, styleTags, tags as t } from '@lezer/highlight';
 import { StyleModule } from 'style-mod';
 import { builtinOpcodes, isGlobalConstant } from './parser-utils';
 
-const commentCssClassName = 'cm-csound-global-var';
+const commentCssClassName = 'cm-csound-comment';
 
 const globalVarCssClassName = 'cm-csound-global-var';
 
@@ -217,7 +217,7 @@ export function variableHighlighter(view: EditorView) {
 
 const defaultCsoundThemeStyles = new StyleModule({
   [`.${globalVarCssClassName}`]: {
-    fontWeight: 700,
+    fontWeight: 600,
   },
   [`.${iRateVarCssClassName}`]: {
     color: '#29A8FF',
@@ -232,7 +232,7 @@ const defaultCsoundThemeStyles = new StyleModule({
     color: '#6237FF',
   },
   [`.${kRateVarCssClassName}`]: {
-    color: '#CF63F8',
+    color: '#6C82AB',
   },
   [`.${sRateVarCssClassName}`]: {
     color: '#a11',
@@ -284,12 +284,18 @@ const makeComment = (commentText: string) =>
 const removeLastComma = (htmlString: string) =>
   htmlString.replace(/, <\/span>.?$/, ' </span>').replace(/,$/, '');
 
+const removeLastCommaAndSpace = (htmlString: string) =>
+  htmlString.replace(/, <\/span>.?$/, '</span>').replace(/,$/, '');
+
 export const htmlizeSynopsis = (
   synopString: string,
   operatorName: string,
+  isFunctionSyntax: boolean,
 ): string => {
   let body = '';
   const maybeCommentPos = synopString.indexOf(')');
+  const needsFunctionalSyntaxRewrite = isFunctionSyntax && maybeCommentPos < 0;
+  let maybeReturnTypeComment = '';
   const synopStringClean =
     maybeCommentPos > 0
       ? synopString.substring(0, maybeCommentPos + 1)
@@ -302,9 +308,16 @@ export const htmlizeSynopsis = (
   for (const token of splitSynopString) {
     if (token) {
       if (token === operatorName) {
-        body = `${removeLastComma(
-          body,
-        )} <span class="${opcodeCssClassName}" style="font-weight: 700; margin-right: 3px;">${token}</span>`;
+        if (needsFunctionalSyntaxRewrite) {
+          maybeReturnTypeComment =
+            `<span style="margin: 0 6px"></span>` +
+            makeComment(`returns ${removeLastCommaAndSpace(body)}`);
+          body = `<span class="${opcodeCssClassName}" style="font-weight: 700;">${token}</span>(`;
+        } else {
+          body = `${removeLastComma(
+            body,
+          )} <span class="${opcodeCssClassName}" style="font-weight: 700; margin-right: 3px;">${token}</span>`;
+        }
       } else if (token.startsWith('a')) {
         body = `${body} <span class="${aRateVarCssClassName}">${token}</span>${commaHtml}`;
       } else if (token.startsWith('k')) {
@@ -319,11 +332,12 @@ export const htmlizeSynopsis = (
     }
   }
 
-  return `<p style="margin: 0; padding: 0; margin-left: 2px;">${removeLastComma(
+  const maybeComment =
+    maybeCommentPos > 0 && synopString.substring(maybeCommentPos + 1);
+
+  return `<p style="margin: 0; padding: 0; margin-left: 2px;">${removeLastCommaAndSpace(
     body,
-  )}${
-    maybeCommentPos > 0
-      ? makeComment(synopString.substring(maybeCommentPos + 1))
-      : ''
-  }</p>`;
+  )}${needsFunctionalSyntaxRewrite ? ')' : ''}${
+    maybeComment ? makeComment(maybeComment) : ''
+  }${maybeReturnTypeComment}</p>`;
 };

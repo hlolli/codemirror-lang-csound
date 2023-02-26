@@ -169,7 +169,30 @@ const csoundInfoPanel: PanelConstructor = (view: EditorView) => {
           Array.isArray(synopsis.synopsis) &&
           synopsis.synopsis.length > 0;
         if (hasSynopsis) {
-          dom.innerHTML = htmlizeSynopsis(synopsis.synopsis[0], operatorName);
+          let isFunctionSyntax = false;
+          let foundExpressionType = false;
+          let currentNode = treeRoot.node.parent;
+
+          while (!foundExpressionType && currentNode) {
+            if (
+              ['CallbackExpression', 'ArgList'].includes(
+                currentNode.type.name || '',
+              )
+            ) {
+              isFunctionSyntax = true;
+              foundExpressionType = true;
+            } else if (currentNode.type.name === 'OpcodeStatement') {
+              isFunctionSyntax = false;
+              foundExpressionType = true;
+            }
+            currentNode = currentNode.parent;
+          }
+
+          dom.innerHTML = htmlizeSynopsis(
+            synopsis.synopsis[0],
+            operatorName,
+            isFunctionSyntax,
+          );
         } else {
           dom.innerHTML = '';
         }
