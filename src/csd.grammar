@@ -1,6 +1,4 @@
-@dialects { csd }
-
-@top Program { rootstatement }
+@top CSD { rootstatement }
 
 @skip { BlockComment | LineComment | space }
 

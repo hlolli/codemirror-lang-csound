@@ -26,7 +26,9 @@ import {
   htmlizeSynopsis,
   variableHighlighter,
 } from './highlighter';
-import { parser } from './syntax.grammar';
+import { parser as csdParser } from './csd.grammar';
+import { parser as orcParser } from './orc.grammar';
+import { parser as scoParser } from './sco.grammar';
 import { builtinOpcodes } from './parser-utils';
 
 const csoundModePlugin: Extension = ViewPlugin.fromClass(
@@ -237,7 +239,7 @@ function foldInstrInside(
 }
 
 export const csdLanguage = LRLanguage.define({
-  parser: parser.configure({
+  parser: csdParser.configure({
     props: [
       csoundTags,
       indentNodeProp.add({
@@ -261,6 +263,46 @@ export const csdLanguage = LRLanguage.define({
   },
 });
 
+export const orcLanguage = LRLanguage.define({
+  parser: orcParser.configure({
+    props: [
+      csoundTags,
+      indentNodeProp.add({
+        InstrumentDeclaration: (context) =>
+          context.column(context.node.from) + context.unit,
+        UdoDeclaration: (context) =>
+          context.column(context.node.from) + context.unit,
+        ControlFlowStatement: (context) =>
+          context.column(context.node.from) + context.unit,
+      }),
+      foldNodeProp.add({
+        InstrumentDeclaration: foldInstrInside,
+        UdoDeclaration: foldInstrInside,
+      }),
+    ],
+  }),
+
+  languageData: {
+    closeBrackets: { brackets: ['(', '[', '{', "'", '"'] },
+    commentTokens: { line: '//', block: { open: '/*', close: '*/' } },
+  },
+});
+
+export const scoLanguage = LRLanguage.define({
+  parser: scoParser.configure({
+    props: [
+      csoundTags,
+      foldNodeProp.add({
+        FoldableScoreStatement: foldInside,
+      }),
+    ],
+  }),
+  languageData: {
+    closeBrackets: { brackets: ['(', '[', '{', "'", '"'] },
+    commentTokens: { line: '//', block: { open: '/*', close: '*/' } },
+  },
+});
+
 //,
 // const orchestraAutocompletion = autocompletion({
 //   activateOnTyping: true,
@@ -274,7 +316,32 @@ const completionList = csdLanguage.data.of({
   ),
 });
 
-export function csoundMode() {
+interface CsoundModeOptions {
+  fileType?: 'csd' | 'orc' | 'sco';
+}
+
+export function csoundMode(options?: CsoundModeOptions) {
+  const { fileType = 'csd' } = options || {};
+  if (fileType === 'orc') {
+    console.log({ orcLanguage });
+    return new LanguageSupport(orcLanguage, [
+      completionList,
+      csoundModePlugin,
+      csoundInfo(),
+      indentUnit.of('  '),
+      defaultCsoundLightTheme,
+    ]);
+  }
+
+  if (fileType === 'sco') {
+    return new LanguageSupport(scoLanguage, [
+      csoundModePlugin,
+      csoundInfo(),
+      indentUnit.of('  '),
+      defaultCsoundLightTheme,
+    ]);
+  }
+
   return new LanguageSupport(csdLanguage, [
     completionList,
     csoundModePlugin,
