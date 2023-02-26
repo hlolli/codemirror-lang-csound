@@ -1,9 +1,11 @@
 {
   "name": "@hlolli/codemirror-lang-csound",
-  "version": "1.0.0-alpha1",
+  "version": "1.0.0-alpha2",
   "description": "codemirror6 editor-plugin for csound",
   "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
   "type": "module",
+  "files": ["dist/*", "tsconfig.json", "src/*", "README.md"],
   "scripts": {
     "clean": "rimraf ./dist;",
     "build": "npm run clean; NODE_ENV=production npx webpack build -c ./config/webpack.config.cjs",
