@@ -1,6 +1,6 @@
 {
   "name": "@hlolli/codemirror-lang-csound",
-  "version": "1.0.0-alpha2",
+  "version": "1.0.0-alpha3",
   "description": "codemirror6 editor-plugin for csound",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",

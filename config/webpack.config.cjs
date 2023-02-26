@@ -4,7 +4,10 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const isProdBuild = process.env.NODE_ENV === 'production';
 
 module.exports = {
-  entry: isProdBuild ? './src/index.ts' : './src/dev.ts',
+  entry: isProdBuild ? './Src/index.ts' : './src/dev.ts',
+  experiments: {
+    outputModule: true,
+  },
   module: {
     rules: [
       {
@@ -24,13 +27,21 @@ module.exports = {
   output: {
     filename: 'index.js',
     path: path.resolve(__dirname, '../dist'),
+    library: {
+      type: 'module',
+    },
   },
-  devtool: 'source-map',
-  mode: 'development',
-  devServer: {
-    static: './dist',
-    hot: false,
-  },
+  ...(isProdBuild
+    ? {}
+    : {
+        devtool: 'source-map',
+        mode: 'development',
+        devServer: {
+          static: './dist',
+          hot: false,
+        },
+      }),
+
   plugins: isProdBuild
     ? []
     : [
