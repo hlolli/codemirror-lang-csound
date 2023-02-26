@@ -1,10 +1,16 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
+const isProdBuild = process.env.NODE_ENV === 'production';
+
 module.exports = {
-  entry: './src/dev.ts',
+  entry: isProdBuild ? './src/index.ts' : './src/dev.ts',
   module: {
     rules: [
+      {
+        test: /\.(grammar|terms|terms\.js)$/,
+        use: require.resolve('./lezer-loader.cjs'),
+      },
       {
         test: /\.tsx?$/,
         use: 'ts-loader',
@@ -17,7 +23,7 @@ module.exports = {
   },
   output: {
     filename: 'index.js',
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, '../dist'),
   },
   devtool: 'source-map',
   mode: 'development',
@@ -25,10 +31,12 @@ module.exports = {
     static: './dist',
     hot: false,
   },
-  plugins: [
-    new HtmlWebpackPlugin({
-      template: 'dev/index.html',
-      title: 'Development',
-    }),
-  ],
+  plugins: isProdBuild
+    ? []
+    : [
+        new HtmlWebpackPlugin({
+          template: 'dev/index.html',
+          title: 'Development',
+        }),
+      ],
 };

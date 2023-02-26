@@ -125,11 +125,17 @@ export const csoundTags = styleTags({
   LineComment: commentTag,
   BlockComment: commentTag,
   Opcode: opcodeTag,
+  ScoreOperator: opcodeTag,
   init: opcodeTag,
   AmbiguousIdentifier: variableTag,
   XmlCsoundSynthesizerOpen: xmlTag,
-  XmlOpen: xmlTag,
-  XmlClose: xmlTag,
+  XmlCsoundSynthesizerClose: xmlTag,
+  XmlCsOptionsOpen: xmlTag,
+  XmlCsOptionsClose: xmlTag,
+  XmlCsInstrumentsOpen: xmlTag,
+  XmlCsInstrumentsClose: xmlTag,
+  XmlCsScoreOpen: xmlTag,
+  XmlCsScoreClose: xmlTag,
   ArrayBrackets: bracketTag,
   if: controlFlowTag,
   do: controlFlowTag,
@@ -301,9 +307,11 @@ export const htmlizeSynopsis = (
       ? synopString.substring(0, maybeCommentPos + 1)
       : synopString;
   const splitSynopString = synopStringClean
+    .replaceAll('[]', ';ARRAY;')
     .replace(/[,\[\]\.]/g, ' ')
     .replaceAll('(', ' (')
     .replace(/\s\s+/g, ' ')
+    .replaceAll(';ARRAY;', '[]')
     .split(' ');
   for (const token of splitSynopString) {
     if (token) {

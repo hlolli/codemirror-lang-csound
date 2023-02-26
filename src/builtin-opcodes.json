@@ -1,12 +1,4 @@
 {
-  "0dbfs": {
-    "synopsis": ["0dbfs = iarg", "0dbfs "],
-    "short_desc": "Sets the value of 0 decibels using full scale amplitude."
-  },
-  "A4": {
-    "synopsis": ["A4 = iarg"],
-    "short_desc": "Sets the base frequency for pitch A4."
-  },
   "ATSadd": {
     "synopsis": [
       "ar ATSadd ktimepnt, kfmod, iatsfile, ifn, ipartials[, ipartialoffset, ipartialincr, igatefn]"
@@ -3355,7 +3347,7 @@
   "log2": {
     "synopsis": [
       "log2(x) (no rate restriction)",
-      "log2(k/i[]) (k- or i-arrays )"
+      "log2(x[]) (k- or i-arrays )"
     ],
     "short_desc": "Returns a base 2 log."
   },

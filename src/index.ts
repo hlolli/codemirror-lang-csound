@@ -8,7 +8,7 @@ import {
   syntaxTree,
   syntaxTreeAvailable,
 } from '@codemirror/language';
-import { completeFromList } from '@codemirror/autocomplete';
+import { completeFromList, ifIn } from '@codemirror/autocomplete';
 import { SyntaxNode, TreeCursor } from '@lezer/common';
 import {
   PanelConstructor,
@@ -26,7 +26,7 @@ import {
   htmlizeSynopsis,
   variableHighlighter,
 } from './highlighter';
-import { parser } from './syntax.grammar.js';
+import { parser } from './syntax.grammar';
 import { builtinOpcodes } from './parser-utils';
 
 const csoundModePlugin: Extension = ViewPlugin.fromClass(
@@ -70,12 +70,18 @@ const findOperatorName = (view: EditorView, tree: TreeCursor) => {
       maybeArgList.node.parent.from,
       maybeArgList.node.parent.to,
     );
-    const token = (tokenSlice as any).text[0]
-      .replace(/:.*/, '')
-      .replace(/\(.*/, '');
+
+    const tokenFull = (tokenSlice as any).text[0].replace(/\(.*/, '');
+
+    const token = tokenFull.replace(/:.*/, '');
+    const explicitRate =
+      tokenFull.indexOf(':') > -1
+        ? tokenFull.replace(/.*:/, '').replace(/ /g, '')
+        : undefined;
 
     return {
       token,
+      explicitRate,
       statement: tokenSlice,
       treeNode: maybeArgListNode.node.parent?.node ?? null,
     };
@@ -162,7 +168,10 @@ const csoundInfoPanel: PanelConstructor = (view: EditorView) => {
         const treeRoot = syntaxTree(view.state).cursorAt(
           view.state.selection.main.head,
         );
-        const { token: operatorName } = findOperatorName(view, treeRoot);
+        const { token: operatorName, explicitRate } = findOperatorName(
+          view,
+          treeRoot,
+        );
         const synopsis = operatorName && builtinOpcodes[operatorName];
         const hasSynopsis =
           Boolean(synopsis) &&
@@ -188,8 +197,17 @@ const csoundInfoPanel: PanelConstructor = (view: EditorView) => {
             currentNode = currentNode.parent;
           }
 
+          let resolvedSynopsis = synopsis.synopsis[0];
+          if (explicitRate && Array.isArray(synopsis.synopsis)) {
+            for (const synop of synopsis.synopsis) {
+              if (synop.startsWith(explicitRate)) {
+                resolvedSynopsis = synop;
+              }
+            }
+          }
+
           dom.innerHTML = htmlizeSynopsis(
-            synopsis.synopsis[0],
+            resolvedSynopsis,
             operatorName,
             isFunctionSyntax,
           );
@@ -233,6 +251,7 @@ export const csdLanguage = LRLanguage.define({
       foldNodeProp.add({
         InstrumentDeclaration: foldInstrInside,
         UdoDeclaration: foldInstrInside,
+        FoldableScoreStatement: foldInside,
       }),
     ],
   }),
@@ -242,8 +261,17 @@ export const csdLanguage = LRLanguage.define({
   },
 });
 
+//,
+// const orchestraAutocompletion = autocompletion({
+//   activateOnTyping: true,
+//   selectOnOpen: true,
+// });
+
 const completionList = csdLanguage.data.of({
-  autocomplete: Object.keys(builtinOpcodes),
+  autocomplete: ifIn(
+    ['Orchestra'],
+    completeFromList(Object.keys(builtinOpcodes)),
+  ),
 });
 
 export function csoundMode() {

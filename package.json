@@ -1,14 +1,13 @@
 {
   "name": "@hlolli/codemirror-lang-csound",
-  "version": "1.0.0",
+  "version": "1.0.0-alpha1",
   "description": "codemirror6 editor-plugin for csound",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "generate": "npx lezer-generator --output src/syntax.grammar.js src/syntax.grammar",
     "clean": "rimraf ./dist;",
-    "build": "npm run prepare-build; tsc",
-    "start": "webpack serve --open -c ./webpack.config.cjs",
+    "build": "npm run clean; NODE_ENV=production npx webpack build -c ./config/webpack.config.cjs",
+    "start": "webpack serve --open -c ./config/webpack.config.cjs",
     "prettify": "prettier --write ./src",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -36,6 +35,7 @@
     "codemirror": "^6.0.1"
   },
   "dependencies": {
+    "@codemirror/text": "^0.19.6",
     "ramda": "^0.28.0",
     "style-mod": "^4.0.0"
   }

@@ -21,8 +21,67 @@ xmlStatement {
   XmlOpen | XmlClose
 }
 
+XmlCsoundSynthesizerOpen {
+  "<" "CsoundSynthesizer" ">"
+}
+
+XmlCsoundSynthesizerClose {
+  "</" "CsoundSynthesizer" ">"
+}
+
+XmlCsScoreOpen {
+  "<" "CsScore" ">"
+}
+
+XmlCsScoreClose {
+  "</" "CsScore" ">"
+}
+
+XmlCsOptionsOpen {
+  "<" "CsOptions" ">"
+}
+
+XmlCsOptionsClose {
+  "</" "CsOptions" ">"
+}
+
+Orchestra {
+  (statement | InstrumentDeclaration | UdoDeclaration | StructDeclaration | DeclareDeclaration)*
+}
+
+XmlCsInstrumentsOpen {
+  "<" "CsInstruments" ">"
+}
+
+XmlCsInstrumentsClose {
+  "</" "CsInstruments" ">"
+}
+
+ScoreOperator {
+  "y" | "x" | "v" | "t" | "s" | "r" | "q" | "n" | "m" | "i"
+}
+
+scoreNumber {
+  ("+" | "-")? Number
+}
+
+scoreStatement {
+  ScoreOperator (scoreNumber | String)* newline |
+  newline FoldableScoreStatement {
+    (ScoreOperator (scoreNumber | String)* newline)+
+  } newline
+}
+
+csdSections {
+  XmlCsOptionsOpen (word | newline)* XmlCsOptionsClose |
+  XmlCsInstrumentsOpen Orchestra XmlCsInstrumentsClose |
+  XmlCsScoreOpen scoreStatement* XmlCsScoreClose
+}
+
 rootstatement {
-  (xmlStatement | statement | InstrumentDeclaration | UdoDeclaration | StructDeclaration | DeclareDeclaration)*
+  XmlCsoundSynthesizerOpen
+  (csdSections | newline)*
+  XmlCsoundSynthesizerClose
 }
 
 statement {
@@ -134,15 +193,6 @@ SignalRateIdentifier { AmbiguousIdentifier }
 AssignOp {
   kw<"init"> | assigners
 }
-
-XmlAttribute {
-  XmlTagName "=" String
-}
-
-XmlOpen { "<" AmbiguousIdentifier XmlAttribute* ">"  }
-
-XmlClose { xmlCloseChars AmbiguousIdentifier ">"   }
-
 
 @tokens {
 
