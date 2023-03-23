@@ -4,7 +4,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const isProdBuild = process.env.NODE_ENV === 'production';
 
 module.exports = {
-  entry: isProdBuild ? './Src/index.ts' : './src/dev.ts',
+  entry: isProdBuild ? './src/index.ts' : './src/dev.ts',
   experiments: {
     outputModule: true,
   },
@@ -15,9 +15,15 @@ module.exports = {
         use: require.resolve('./lezer-loader.cjs'),
       },
       {
-        test: /\.tsx?$/,
+        test: !isProdBuild
+          ? /\.tsx?$/
+          : function (modulePath) {
+              return (
+                modulePath.endsWith('.ts') && !modulePath.endsWith('dev.ts')
+              );
+            },
         use: 'ts-loader',
-        exclude: /node_modules/,
+        exclude: isProdBuild ? /node_modules|dev\.ts/ : /node_modules/,
       },
     ],
   },
@@ -31,6 +37,16 @@ module.exports = {
       type: 'module',
     },
   },
+  // externals: {
+  //   '@lezer/common': '@lezer/common/dist/index.cjs',
+  //   codemirror: 'codemirror',
+  //   '@codemirror/commands': '@codemirror/commands/dist/index.cjs',
+  //   '@codemirror/search': '@codemirror/search/dist/index.cjs',
+  //   '@codemirror/language': '@codemirror/language/dist/index.cjs',
+  //   '@codemirror/autocomplete': '@codemirror/autocomplete/dist/index.cjs',
+  //   '@codemirror/view': '@codemirror/view/dist/index.cjs',
+  //   '@codemirror/state': '@codemirror/state/dist/index.cjs',
+  // },
   ...(isProdBuild
     ? {}
     : {

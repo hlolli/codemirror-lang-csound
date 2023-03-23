@@ -1,9 +1,9 @@
 {
   "name": "@hlolli/codemirror-lang-csound",
-  "version": "1.0.0-alpha3",
+  "version": "1.0.0-alpha5",
   "description": "codemirror6 editor-plugin for csound",
   "main": "dist/index.js",
-  "typings": "dist/index.d.ts",
+  "typings": "index.d.ts",
   "type": "module",
   "files": ["dist/*", "tsconfig.json", "src/*", "README.md"],
   "scripts": {
@@ -18,20 +18,20 @@
   "devDependencies": {
     "@lezer/generator": "^1.2.2",
     "@types/live-server": "^1.2.1",
-    "@types/node": "^18.14.0",
+    "@types/node": "^18.15.5",
     "chokidar": "^3.5.3",
-    "esbuild": "^0.17.10",
+    "esbuild": "^0.17.12",
     "html-webpack-plugin": "^5.5.0",
     "live-server": "^1.2.2",
-    "mkdirp": "^2.1.3",
-    "prettier": "^2.8.4",
-    "rimraf": "^4.1.2",
+    "mkdirp": "^2.1.6",
+    "prettier": "^2.8.6",
+    "rimraf": "^4.4.1",
     "ts-loader": "^9.4.2",
     "ts-node": "^10.9.1",
-    "typescript": "^4.9.5",
-    "webpack": "^5.75.0",
+    "typescript": "^5.0.2",
+    "webpack": "^5.76.3",
     "webpack-cli": "^5.0.1",
-    "webpack-dev-server": "^4.11.1"
+    "webpack-dev-server": "^4.13.1"
   },
   "peerDependencies": {
     "codemirror": "^6.0.1"
@@ -39,6 +39,6 @@
   "dependencies": {
     "@codemirror/text": "^0.19.6",
     "ramda": "^0.28.0",
-    "style-mod": "^4.0.0"
+    "style-mod": "^4.0.2"
   }
 }

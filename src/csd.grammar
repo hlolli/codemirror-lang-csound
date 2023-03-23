@@ -83,6 +83,7 @@ rootstatement {
 }
 
 statement {
+  MacroStatement |
   AssignStatement |
   OpcodeStatement |
   GotoStatement |
@@ -192,6 +193,14 @@ AssignOp {
   kw<"init"> | assigners
 }
 
+MacroOp {
+  kw<"#include">
+}
+
+MacroStatement {
+  MacroOp String
+}
+
 @tokens {
 
   LineComment { ";" ![\n]* | "//" ![\n]* }
@@ -275,6 +284,7 @@ AssignOp {
     xmlCloseChars,
     arithOpLeft,
     arithOpRight,
+    MacroOp,
     ControlFlowElseIfToken,
     ControlFlowElseToken,
     ControlFlowDoToken,

@@ -2799,10 +2799,6 @@
     "synopsis": ["ain1[, ...] inch kchan1[,...]"],
     "short_desc": "Reads from numbered channels in an external audio signal or stream."
   },
-  "include": {
-    "synopsis": ["#include filename", "#includestr filename"],
-    "short_desc": "Includes an external file for processing."
-  },
   "inh": {
     "synopsis": ["ar1, ar2, ar3, ar4, ar5, ar6 inh"],
     "short_desc": "Reads six-channel audio data from an external device or stream."

@@ -115,6 +115,7 @@ const bracketTag = Tag.define();
 const defineOperatorTag = Tag.define();
 const controlFlowTag = Tag.define();
 const commentTag = Tag.define();
+const macroTag = Tag.define();
 
 export const csoundTags = styleTags({
   instr: defineOperatorTag,
@@ -146,6 +147,7 @@ export const csoundTags = styleTags({
   ControlFlowEndToken: controlFlowTag,
   ControlFlowElseIfToken: controlFlowTag,
   ControlFlowElseToken: controlFlowTag,
+  MacroOp: macroTag,
   '(': bracketTag,
   ')': bracketTag,
   '[': bracketTag,
@@ -204,6 +206,10 @@ export function variableHighlighter(view: EditorView) {
           if (cursor.name === 'AmbiguousIdentifier') {
             const tokenSlice = view.state.doc.slice(cursor.from, cursor.to);
             const token = (tokenSlice as any).text[0];
+            if (['include'].includes(token)) {
+              return;
+            }
+
             if (cursor.node.parent?.name) {
               const maybeDecoration = decorateAmbigiousToken(
                 token,
@@ -266,13 +272,14 @@ StyleModule.mount(document, defaultCsoundThemeStyles);
 
 const defaultCsoundLightThemeTagStyles = HighlightStyle.define(
   [
-    { tag: opcodeTag, color: '#005cc5', class: `.${opcodeCssClassName}` },
-    { tag: defineOperatorTag, color: '#6f42c1' },
-    { tag: bracketTag, color: '#22863a' },
-    { tag: controlFlowTag, color: '#22863a' },
+    { tag: opcodeTag, color: '#005cc5', class: `${opcodeCssClassName}` },
+    { tag: defineOperatorTag, color: '#6f42c1', class: 'cm-csound-define' },
+    { tag: bracketTag, color: '#22863a', class: 'cm-csound-bracket' },
+    { tag: controlFlowTag, color: '#22863a', class: 'cm-csound-control-flow' },
     { tag: xmlTag, color: '#22863a', class: xmlTagCssClassName },
     { tag: commentTag, color: 'gray', class: commentCssClassName },
-    { tag: t.string, color: '#a11' },
+    { tag: t.string, color: '#a11', class: sRateVarCssClassName },
+    { tag: macroTag, color: 'red', class: 'cm-csound-macro' },
   ],
   { themeType: 'light' },
 );
