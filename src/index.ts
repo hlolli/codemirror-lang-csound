@@ -6,20 +6,16 @@ import {
   indentUnit,
   indentNodeProp,
   syntaxTree,
-  syntaxTreeAvailable,
 } from '@codemirror/language';
 import { completeFromList, ifIn } from '@codemirror/autocomplete';
 import { SyntaxNode, TreeCursor } from '@lezer/common';
 import {
   PanelConstructor,
-  Decoration,
   ViewPlugin,
   showPanel,
   EditorView,
-  ViewUpdate,
 } from '@codemirror/view';
-import { Extension, RangeSet, RangeSetBuilder } from '@codemirror/state';
-import { StyleModule } from 'style-mod';
+import { Extension } from '@codemirror/state';
 import {
   csoundTags,
   defaultCsoundLightTheme,
@@ -317,36 +313,41 @@ const completionList = csdLanguage.data.of({
 });
 
 interface CsoundModeOptions {
+  enableCompletion?: boolean;
+  enableSynopsis?: boolean;
+  enableDefaultTheme?: boolean;
   fileType?: 'csd' | 'orc' | 'sco';
 }
 
 export function csoundMode(options?: CsoundModeOptions) {
-  const { fileType = 'csd' } = options || {};
+  const {
+    fileType = 'csd',
+    enableSynopsis = true,
+    enableCompletion = true,
+    enableDefaultTheme = true,
+  } = options || {};
+  let selectedLanguageVariant = csdLanguage;
+  const features = [csoundModePlugin, indentUnit.of('  ')];
+
+  if (enableSynopsis) {
+    features.push(csoundInfo());
+  }
+
+  if (enableCompletion) {
+    features.push(completionList);
+  }
+
+  if (enableDefaultTheme) {
+    features.push(defaultCsoundLightTheme);
+  }
+
   if (fileType === 'orc') {
-    console.log({ orcLanguage });
-    return new LanguageSupport(orcLanguage, [
-      completionList,
-      csoundModePlugin,
-      csoundInfo(),
-      indentUnit.of('  '),
-      defaultCsoundLightTheme,
-    ]);
+    selectedLanguageVariant = orcLanguage;
   }
 
   if (fileType === 'sco') {
-    return new LanguageSupport(scoLanguage, [
-      csoundModePlugin,
-      csoundInfo(),
-      indentUnit.of('  '),
-      defaultCsoundLightTheme,
-    ]);
+    selectedLanguageVariant = scoLanguage;
   }
 
-  return new LanguageSupport(csdLanguage, [
-    completionList,
-    csoundModePlugin,
-    csoundInfo(),
-    indentUnit.of('  '),
-    defaultCsoundLightTheme,
-  ]);
+  return new LanguageSupport(selectedLanguageVariant, features);
 }

@@ -1,4 +1,4 @@
-@top CSD { rootstatement }
+@top CSD { newline* rootstatement newline* }
 
 @skip { BlockComment | LineComment | space }
 

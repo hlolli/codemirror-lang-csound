@@ -37,16 +37,18 @@ module.exports = {
       type: 'module',
     },
   },
-  // externals: {
-  //   '@lezer/common': '@lezer/common/dist/index.cjs',
-  //   codemirror: 'codemirror',
-  //   '@codemirror/commands': '@codemirror/commands/dist/index.cjs',
-  //   '@codemirror/search': '@codemirror/search/dist/index.cjs',
-  //   '@codemirror/language': '@codemirror/language/dist/index.cjs',
-  //   '@codemirror/autocomplete': '@codemirror/autocomplete/dist/index.cjs',
-  //   '@codemirror/view': '@codemirror/view/dist/index.cjs',
-  //   '@codemirror/state': '@codemirror/state/dist/index.cjs',
-  // },
+  externals: isProdBuild
+    ? {
+        //'@lezer/common': '@lezer/common',
+        // codemirror: 'codemirror',
+        '@codemirror/commands': '@codemirror/commands',
+        '@codemirror/search': '@codemirror/search',
+        '@codemirror/language': '@codemirror/language',
+        '@codemirror/autocomplete': '@codemirror/autocomplete',
+        '@codemirror/view': '@codemirror/view',
+        '@codemirror/state': '@codemirror/state',
+      }
+    : {},
   ...(isProdBuild
     ? {}
     : {
