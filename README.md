@@ -1,21 +1,55 @@
-## codemirror-lang-csound
+# codemirror-lang-csound
 
-Support for csound in codemirror6
+CodeMirror 6 language support for Csound CSD, ORC, and SCO files.
 
-```console
-$ npm i @hlolli/codemirror-lang-csound codemirror --save
+The parser supports classic Csound syntax and Csound 7 forms such as typed
+names, structs, modern UDO signatures, array ranges and slices, `for` loops,
+`switch` blocks, raw strings, preprocessors, and typed opcode calls.
+
+## Install
+
+```sh
+npm install @hlolli/codemirror-lang-csound codemirror
 ```
 
-Add to extensions, example:
+Or with Bun:
+
+```sh
+bun add @hlolli/codemirror-lang-csound codemirror
+```
+
+## Use
 
 ```ts
+import { basicSetup, EditorView } from 'codemirror';
 import { csoundMode } from '@hlolli/codemirror-lang-csound';
-import { EditorView, basicSetup } from 'codemirror';
 
-const editor = new EditorView({
+new EditorView({
   extensions: [basicSetup, csoundMode({ fileType: 'csd' })],
-  parent: document.getElementById('editor')!,
+  parent: document.querySelector('#editor')!,
 });
 ```
 
-[Read more on codemirror6](https://codemirror.net/)
+Set `fileType` to `csd`, `orc`, or `sco`. `csound({ mode: 'orc' })` is a short
+alias. The package also exports `csdLanguage`, `orcLanguage`, and `scoLanguage`.
+
+## Develop
+
+```sh
+bun install
+bun run check
+bun run build
+```
+
+Run the parser against a Csound source checkout:
+
+```sh
+bun run test:csound -- ../csound/tests
+```
+
+The scan also reads `CSOUND_TESTS_DIR` and otherwise uses
+`../csound/tests`.
+
+The unified grammar and its raw-string tokenizer draw on work from
+[kunstmusik/codemirror-lang-csound](https://github.com/kunstmusik/codemirror-lang-csound).
+See `THIRD_PARTY_NOTICES.md`.

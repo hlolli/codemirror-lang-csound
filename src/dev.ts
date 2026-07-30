@@ -1,9 +1,7 @@
 import { EditorView, basicSetup } from 'codemirror';
 import { Tree } from '@lezer/common';
-// import { EditorState, Compartment } from '@codemirror/state';
 import { csoundMode } from './index';
-import { parser as csdParser } from './csd.grammar';
-import { parser as orcParser } from './orc.grammar';
+import { parser } from './parser.js';
 import { printTree } from './print-tree';
 
 const editor = new EditorView({
@@ -413,6 +411,7 @@ i 1 0 5   50          9           100
 // (parser as any).topRules = { ORC: (parser as any).topRules.ORC };
 
 ((text: string) => {
+  const csdParser = parser.configure({ top: 'CsdFile' });
   console.log(printTree(csdParser.parse(text) as Tree, text));
   editor.dispatch({
     changes: { from: 0, to: editor.state.doc.length, insert: text },

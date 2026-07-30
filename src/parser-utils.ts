@@ -1,18 +1,26 @@
-import { EditorView } from '@codemirror/view';
-import { SyntaxNode } from '@lezer/common';
-import * as builtinOpcodesStar from './builtin-opcodes.json';
+import type { EditorView } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
+import builtinOpcodeData from './builtin-opcodes.json';
 
-export const builtinOpcodes: Record<
+export const builtinOpcodes = builtinOpcodeData as Record<
   string,
   { synopsis: string[]; short_desc: string }
-> = builtinOpcodesStar;
+>;
 
 function tokenExists(opname: string) {
   return builtinOpcodes[opname] !== undefined;
 }
 
 export const isGlobalConstant = (token: string) => {
-  return ['sr', 'kr', 'ksmps', '0dbfs', 'nchnls', 'nchnls_i'].includes(token);
+  return [
+    'sr',
+    'kr',
+    'ksmps',
+    '0dbfs',
+    'nchnls',
+    'nchnls_i',
+    'nchnls_hw',
+  ].includes(token);
 };
 
 function resolveOpcodeStatement(view: EditorView, node: SyntaxNode) {

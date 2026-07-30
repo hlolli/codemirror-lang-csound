@@ -1,52 +1,76 @@
 {
   "name": "@hlolli/codemirror-lang-csound",
-  "version": "1.0.0-alpha10",
-  "description": "codemirror6 editor-plugin for csound",
-  "main": "dist/index.js",
-  "typings": "index.d.ts",
-  "type": "module",
-  "files": [
-    "dist/*",
-    "tsconfig.json",
-    "src/*",
-    "README.md"
+  "version": "1.0.0-alpha11",
+  "description": "CodeMirror 6 language support for Csound CSD, ORC, and SCO files",
+  "keywords": [
+    "codemirror",
+    "codemirror6",
+    "csound",
+    "lezer",
+    "music"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "packageManager": "bun@1.3.13",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "clean": "rimraf ./dist;",
-    "build": "npm run clean; NODE_ENV=production npx webpack build -c ./config/webpack.config.cjs",
-    "start": "webpack serve --open -c ./config/webpack.config.cjs",
-    "prettify": "prettier --write ./src",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "generate": "bunx lezer-generator src/csound.grammar -o src/parser",
+    "generate:opcodes": "bun scripts/extract-synopsis.ts",
+    "build": "bun run generate && bun run scripts/build.ts",
+    "dev": "bun run generate && bun ./dev/index.html",
+    "start": "bun run dev",
+    "format": "prettier --write --no-error-on-unmatched-pattern src/index.ts src/highlighter.ts src/parser-utils.ts src/raw-string-tokens.js \"scripts/**/*.ts\" \"test/**/*.ts\" \"dev/**/*.html\" package.json \"tsconfig*.json\"",
+    "format:check": "prettier --check --no-error-on-unmatched-pattern src/index.ts src/highlighter.ts src/parser-utils.ts src/raw-string-tokens.js \"scripts/**/*.ts\" \"test/**/*.ts\" \"dev/**/*.html\" package.json \"tsconfig*.json\"",
+    "prettify": "bun run format",
+    "typecheck": "bun run generate && tsc -p tsconfig.json",
+    "test": "bun run generate && bun test",
+    "test:csound": "bun run generate && bun scripts/scan-csound-tests.ts",
+    "test:watch": "bun run generate && bun test --watch",
+    "check": "bun run format:check && bun run typecheck && bun test",
+    "prepack": "bun run build"
   },
   "author": "Hlöðver Sigurðsson",
   "license": "LGPL-2.0",
-  "devDependencies": {
-    "@lezer/generator": "^1.7.2",
-    "@types/live-server": "^1.2.3",
-    "@types/node": "^22.10.5",
-    "chokidar": "^4.0.3",
-    "esbuild": "^0.24.2",
-    "html-webpack-plugin": "^5.6.3",
-    "live-server": "^1.2.2",
-    "mkdirp": "^3.0.1",
-    "prettier": "^3.4.2",
-    "rimraf": "^6.0.1",
-    "ts-loader": "^9.5.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.2",
-    "webpack": "^5.97.1",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hlolli/codemirror-lang-csound.git"
   },
-  "peerDependencies": {
-    "codemirror": "6.x",
-    "@codemirror/state": "6.x",
-    "@codemirror/language": "6.x",
-    "@codemirror/view": "6.x"
+  "homepage": "https://github.com/hlolli/codemirror-lang-csound#readme",
+  "bugs": {
+    "url": "https://github.com/hlolli/codemirror-lang-csound/issues"
   },
   "dependencies": {
-    "@codemirror/text": "^0.19.6",
-    "ramda": "^0.30.1",
-    "style-mod": "^4.1.2"
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.7",
+    "@lezer/common": "^1.5.2",
+    "@lezer/highlight": "^1.2.3",
+    "@lezer/lr": "^1.4.10"
+  },
+  "devDependencies": {
+    "@lezer/generator": "^1.8.0",
+    "@types/bun": "1.3.13",
+    "codemirror": "^6.0.2",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3"
   }
 }

@@ -5,9 +5,8 @@ import {
   syntaxTreeAvailable,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { RangeSetBuilder } from '@codemirror/state';
+import { RangeSetBuilder, type Extension } from '@codemirror/state';
 import { Tag, styleTags, tags as t } from '@lezer/highlight';
-import { StyleModule } from 'style-mod';
 import { builtinOpcodes, isGlobalConstant } from './parser-utils';
 
 const commentCssClassName = 'cm-csound-comment';
@@ -70,7 +69,7 @@ const sRateVarDecoration = Decoration.mark({
 
 const gsRateVarDecoration = Decoration.mark({
   attributes: {
-    class: [sRateVarDecoration, globalVarCssClassName].join(' '),
+    class: [sRateVarCssClassName, globalVarCssClassName].join(' '),
   },
 });
 
@@ -82,7 +81,7 @@ const fRateVarDecoration = Decoration.mark({
 
 const gfRateVarDecoration = Decoration.mark({
   attributes: {
-    class: [fRateVarDecoration, globalVarCssClassName].join(' '),
+    class: [fRateVarCssClassName, globalVarCssClassName].join(' '),
   },
 });
 
@@ -93,10 +92,6 @@ const pFieldVarDecoration = Decoration.mark({
 });
 
 const xmlTagCssClassName = 'cm-csound-xml-tag';
-
-const xmlTagDecoration = Decoration.mark({
-  attributes: { class: xmlTagCssClassName },
-});
 
 const gotoTokenCssClassName = 'cm-csound-goto-token';
 
@@ -109,6 +104,7 @@ const macroTokenDecoration = Decoration.mark({
 });
 
 const variableTag = Tag.define(); // acts as i-rate and fallback
+const globalConstantTag = Tag.define();
 const opcodeTag = Tag.define();
 const xmlTag = Tag.define();
 const bracketTag = Tag.define();
@@ -118,36 +114,30 @@ const commentTag = Tag.define();
 const macroTag = Tag.define();
 
 export const csoundTags = styleTags({
-  instr: defineOperatorTag,
-  endin: defineOperatorTag,
-  opcode: defineOperatorTag,
-  endop: defineOperatorTag,
+  'instr endin opcode endop struct declare void': defineOperatorTag,
   String: t.string,
+  RawString: t.string,
+  Number: t.number,
+  BooleanLiteral: t.bool,
   LineComment: commentTag,
   BlockComment: commentTag,
-  Opcode: opcodeTag,
-  ScoreOperator: opcodeTag,
-  init: opcodeTag,
-  AmbiguousIdentifier: variableTag,
-  XmlCsoundSynthesizerOpen: xmlTag,
-  XmlCsoundSynthesizerClose: xmlTag,
-  XmlCsOptionsOpen: xmlTag,
-  XmlCsOptionsClose: xmlTag,
-  XmlCsInstrumentsOpen: xmlTag,
-  XmlCsInstrumentsClose: xmlTag,
-  XmlCsScoreOpen: xmlTag,
-  XmlCsScoreClose: xmlTag,
-  ArrayBrackets: bracketTag,
-  if: controlFlowTag,
-  do: controlFlowTag,
-  fi: controlFlowTag,
-  while: controlFlowTag,
-  ControlFlowDoToken: controlFlowTag,
-  ControlFlowGotoToken: controlFlowTag,
-  ControlFlowEndToken: controlFlowTag,
-  ControlFlowElseIfToken: controlFlowTag,
-  ControlFlowElseToken: controlFlowTag,
-  MacroOp: macroTag,
+  LineContinuation: commentTag,
+  FunctionCallee: opcodeTag,
+  ScoreFunctionCallee: opcodeTag,
+  ScoreOpcode: opcodeTag,
+  'Identifier LegacyTypeIdentifier TypedIdentifier GlobalTypedIdentifier ArrayIdentifier TypedArrayIdentifier GlobalTypedArrayIdentifier':
+    variableTag,
+  HeaderIdentifier: [globalConstantTag, t.constant(t.variableName)],
+  PField: variableTag,
+  LabelName: t.labelName,
+  'CsdOpenTag CsdCloseTag CsdLicenseOpen CsdLicenseClose CsdOptionsOpen CsdOptionsClose CsdInstrumentsOpen CsdInstrumentsClose CsdScoreOpen CsdScoreOpenCsbeats CsdScoreClose CsdCabbageOpen CsdCabbageClose':
+    xmlTag,
+  'if then ithen kthen elseif else endif fi while until do od enduntil for in switch case default endsw goto igoto kgoto rigoto reinit break continue return rireturn xin xout':
+    controlFlowTag,
+  'HashInclude HashIncludestr': t.moduleKeyword,
+  'HashDefine HashUndef': defineOperatorTag,
+  'HashIfdef HashIfndef HashElse HashEnd': controlFlowTag,
+  'MacroUsage MacroUsageToken': macroTag,
   '(': bracketTag,
   ')': bracketTag,
   '[': bracketTag,
@@ -156,68 +146,98 @@ export const csoundTags = styleTags({
   '}': bracketTag,
 });
 
-function decorateAmbigiousToken(token: string, parentToken: string) {
-  if (isGlobalConstant(token)) {
-    return globalConstantDecoration;
-  } else if (
-    parentToken === 'CallbackExpression' ||
-    builtinOpcodes[token.replace(/:.*/, '')]
-  ) {
-    return opcodeDecoration;
-  } else if (['XmlOpen', 'XmlClose'].includes(parentToken)) {
-    return xmlTagDecoration;
-  } else if (/^p\d+$/.test(token)) {
-    return pFieldVarDecoration;
-  } else if (token.startsWith('a')) {
-    return aRateVarDecoration;
-  } else if (token.startsWith('k')) {
-    return kRateVarDecoration;
-  } else if (token.startsWith('S')) {
-    return sRateVarDecoration;
-  } else if (token.startsWith('ga')) {
-    return gaRateVarDecoration;
-  } else if (token.startsWith('gk')) {
-    return gkRateVarDecoration;
-  } else if (token.startsWith('gS')) {
-    return gsRateVarDecoration;
-  } else if (token.startsWith('f')) {
-    return fRateVarDecoration;
-  } else if (token.startsWith('gf')) {
-    return gfRateVarDecoration;
-  } else if (/^\$.+/.test(token)) {
-    return macroTokenDecoration;
-  } else if (token.startsWith('gi')) {
-    return giRateVarDecoration;
-  } else if (token.endsWith(':')) {
-    return gotoTokenDecoration;
-  } else {
-    return iRateVarDecoration;
+const dynamicIdentifierNodes = new Set([
+  'Identifier',
+  'LegacyTypeIdentifier',
+  'TypedIdentifier',
+  'GlobalTypedIdentifier',
+  'ArrayIdentifier',
+  'TypedArrayIdentifier',
+  'GlobalTypedArrayIdentifier',
+  'HeaderIdentifier',
+  'PField',
+  'MacroUsageToken',
+]);
+
+function rateDecoration(rate: string, isGlobal: boolean) {
+  switch (rate) {
+    case 'a':
+      return isGlobal ? gaRateVarDecoration : aRateVarDecoration;
+    case 'k':
+      return isGlobal ? gkRateVarDecoration : kRateVarDecoration;
+    case 'S':
+      return isGlobal ? gsRateVarDecoration : sRateVarDecoration;
+    case 'f':
+      return isGlobal ? gfRateVarDecoration : fRateVarDecoration;
+    default:
+      return isGlobal ? giRateVarDecoration : iRateVarDecoration;
   }
 }
 
+function explicitTypeRate(token: string) {
+  const explicitType = token.includes('@global:')
+    ? token.split('@global:').at(-1)
+    : token.includes(':')
+      ? token.split(':').at(-1)
+      : undefined;
+  const typeName = explicitType?.replaceAll('[]', '');
+  return typeName && ['a', 'k', 'i', 'S', 'f'].includes(typeName)
+    ? typeName
+    : undefined;
+}
+
+function decorateIdentifier(token: string, parentToken: string) {
+  const opcodeName = token
+    .replace(/@global:.*/, '')
+    .replace(/:.*/, '')
+    .replace(/\[\]+$/, '');
+
+  if (isGlobalConstant(token)) {
+    return globalConstantDecoration;
+  } else if (
+    ['FunctionCallee', 'ScoreFunctionCallee', 'UdoName'].includes(
+      parentToken,
+    ) ||
+    builtinOpcodes[opcodeName]
+  ) {
+    return opcodeDecoration;
+  } else if (/^p\d+$/.test(token)) {
+    return pFieldVarDecoration;
+  } else if (/^\$.+/.test(token)) {
+    return macroTokenDecoration;
+  } else if (parentToken === 'LabelName') {
+    return gotoTokenDecoration;
+  }
+
+  const typedRate = explicitTypeRate(token);
+  const isExplicitGlobal = token.includes('@global:');
+  if (typedRate || isExplicitGlobal) {
+    return rateDecoration(typedRate ?? 'i', isExplicitGlobal);
+  }
+
+  const legacyRate = /^(?:g)?([akiSf])/.exec(token)?.[1] ?? 'i';
+  return rateDecoration(legacyRate, /^g[akiSf]/.test(token));
+}
+
 export function variableHighlighter(view: EditorView) {
-  const builder = new RangeSetBuilder();
+  const builder = new RangeSetBuilder<Decoration>();
   for (const { from, to } of view.visibleRanges) {
     if (syntaxTreeAvailable(view.state, to)) {
       syntaxTree(view.state).iterate({
         from,
         to,
         enter: (cursor) => {
-          if (cursor.name === 'AmbiguousIdentifier') {
-            const tokenSlice = view.state.doc.slice(cursor.from, cursor.to);
-            const token = (tokenSlice as any).text[0];
-            if (['include'].includes(token)) {
-              return;
-            }
+          if (dynamicIdentifierNodes.has(cursor.name)) {
+            const token = view.state.sliceDoc(cursor.from, cursor.to);
+            const parentName = cursor.node.parent?.name;
+            if (parentName === 'MemberAccessSegment') return;
 
-            if (cursor.node.parent?.name) {
-              const maybeDecoration = decorateAmbigiousToken(
-                token,
-                cursor.node.parent.name,
+            if (parentName) {
+              builder.add(
+                cursor.from,
+                cursor.to,
+                decorateIdentifier(token, parentName),
               );
-              if (maybeDecoration) {
-                builder.add(cursor.from, cursor.to, maybeDecoration);
-              }
             }
           }
         },
@@ -227,7 +247,7 @@ export function variableHighlighter(view: EditorView) {
   return builder.finish();
 }
 
-const defaultCsoundThemeStyles = new StyleModule({
+const defaultCsoundBaseTheme = EditorView.baseTheme({
   [`.${globalVarCssClassName}`]: {
     fontWeight: 600,
   },
@@ -259,7 +279,7 @@ const defaultCsoundThemeStyles = new StyleModule({
   [`.${xmlTagCssClassName}`]: {
     color: '#22863a',
   },
-  [`.${gotoTokenDecoration}`]: {
+  [`.${gotoTokenCssClassName}`]: {
     color: '#59648B',
     fontWeight: 600,
   },
@@ -268,10 +288,13 @@ const defaultCsoundThemeStyles = new StyleModule({
   },
 });
 
-StyleModule.mount(document, defaultCsoundThemeStyles);
-
 const defaultCsoundLightThemeTagStyles = HighlightStyle.define(
   [
+    {
+      tag: globalConstantTag,
+      color: '#22863a',
+      class: globalConstantCssClassName,
+    },
     { tag: opcodeTag, color: '#005cc5', class: `${opcodeCssClassName}` },
     { tag: defineOperatorTag, color: '#6f42c1', class: 'cm-csound-define' },
     { tag: bracketTag, color: '#22863a', class: 'cm-csound-bracket' },
@@ -279,15 +302,18 @@ const defaultCsoundLightThemeTagStyles = HighlightStyle.define(
     { tag: xmlTag, color: '#22863a', class: xmlTagCssClassName },
     { tag: commentTag, color: 'gray', class: commentCssClassName },
     { tag: t.string, color: '#a11', class: sRateVarCssClassName },
+    { tag: t.number, color: '#0550ae', class: 'cm-csound-number' },
+    { tag: t.bool, color: '#cf222e', class: 'cm-csound-boolean' },
+    { tag: t.labelName, color: '#59648B', class: gotoTokenCssClassName },
     { tag: macroTag, color: 'red', class: 'cm-csound-macro' },
   ],
   { themeType: 'light' },
 );
 
-export const defaultCsoundLightTheme = syntaxHighlighting(
-  defaultCsoundLightThemeTagStyles,
-  //   { fallback: true },
-);
+export const defaultCsoundLightTheme: Extension = [
+  defaultCsoundBaseTheme,
+  syntaxHighlighting(defaultCsoundLightThemeTagStyles),
+];
 
 const commaHtml = `<span style="margin-right: 5px;">, </span>`;
 

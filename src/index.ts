@@ -1,4 +1,5 @@
 import {
+  continuedIndent,
   LRLanguage,
   LanguageSupport,
   foldNodeProp,
@@ -8,140 +9,72 @@ import {
   syntaxTree,
 } from '@codemirror/language';
 import { completeFromList, ifIn } from '@codemirror/autocomplete';
-import { SyntaxNode, TreeCursor } from '@lezer/common';
-import {
-  PanelConstructor,
-  ViewPlugin,
-  showPanel,
-  EditorView,
-} from '@codemirror/view';
-import { Extension } from '@codemirror/state';
+import type { SyntaxNode, TreeCursor } from '@lezer/common';
+import { ViewPlugin, showPanel, EditorView } from '@codemirror/view';
+import type { PanelConstructor } from '@codemirror/view';
+import type { Extension } from '@codemirror/state';
 import {
   csoundTags,
   defaultCsoundLightTheme,
   htmlizeSynopsis,
   variableHighlighter,
 } from './highlighter';
-import { parser as csdParser } from './csd.grammar';
-import { parser as orcParser } from './orc.grammar';
-import { parser as scoParser } from './sco.grammar';
+import { parser } from './parser.js';
 import { builtinOpcodes } from './parser-utils';
 
 const csoundModePlugin: Extension = ViewPlugin.fromClass(
   class {
-    public view: EditorView;
-    constructor(view: EditorView) {
-      this.view = view;
-    }
+    constructor(public view: EditorView) {}
+
     get decorations() {
       return variableHighlighter(this.view);
     }
   },
   {
-    decorations: ({ view }: { view: EditorView }) => {
-      return variableHighlighter(view) as any;
-    },
+    decorations: (plugin) => plugin.decorations,
   },
 );
 
-type LineReducer = {
-  cand: string | undefined;
-  stop: boolean;
-  lastComma: boolean;
-};
-
 const findOperatorName = (view: EditorView, tree: TreeCursor) => {
-  const treeRoot = tree.node;
-  let maybeArgList: SyntaxNode | null = treeRoot;
-  let maybeArgListNode: SyntaxNode | null = tree.node;
+  let node: SyntaxNode | null = tree.node;
 
-  while (maybeArgList && maybeArgList.type.name !== 'ArgList') {
-    maybeArgListNode = maybeArgList?.node?.parent ?? maybeArgList.node;
-    maybeArgList = maybeArgList.node.parent;
-  }
+  while (node) {
+    if (node.name === 'FunctionCallExpr') {
+      const callee = node.getChild('FunctionCallee');
+      if (callee) {
+        const tokenFull = view.state.sliceDoc(callee.from, callee.to);
+        return {
+          token: tokenFull.replace(/:.*/, ''),
+          explicitRate: tokenFull.includes(':')
+            ? tokenFull.split(':').at(-1)?.replaceAll('[]', '')
+            : undefined,
+          isFunctionSyntax: true,
+        };
+      }
+    }
 
-  if (
-    maybeArgList &&
-    maybeArgList.node?.parent?.type.name === 'CallbackExpression'
-  ) {
-    const tokenSlice = view.state.doc.slice(
-      maybeArgList.node.parent.from,
-      maybeArgList.node.parent.to,
-    );
+    if (node.name === 'OrcGenericLine') {
+      const statement = view.state.sliceDoc(node.from, node.to);
+      const candidates =
+        statement.match(
+          /[\p{L}_][\p{L}\p{N}_]*(?::[\p{L}_][\p{L}\p{N}_]*(?:\[\])*)?/gu,
+        ) ?? [];
+      const tokenFull = candidates.find(
+        (candidate) => builtinOpcodes[candidate.replace(/:.*/, '')],
+      );
 
-    const tokenFull = (tokenSlice as any).text[0].replace(/\(.*/, '');
-
-    const token = tokenFull.replace(/:.*/, '');
-    const explicitRate =
-      tokenFull.indexOf(':') > -1
-        ? tokenFull.replace(/.*:/, '').replace(/ /g, '')
-        : undefined;
-
-    return {
-      token,
-      explicitRate,
-      statement: tokenSlice,
-      treeNode: maybeArgListNode.node.parent?.node ?? null,
-    };
-  }
-
-  let maybeOpcodeStatement: SyntaxNode | null = treeRoot;
-  let maybeOpcodeStatementNode: SyntaxNode | null = treeRoot;
-
-  while (
-    maybeOpcodeStatement &&
-    maybeOpcodeStatement.type.name !== 'OpcodeStatement'
-  ) {
-    maybeOpcodeStatementNode =
-      maybeOpcodeStatement?.node?.parent ?? maybeOpcodeStatement.node;
-    maybeOpcodeStatement = maybeOpcodeStatement.node.parent;
-  }
-
-  if (maybeOpcodeStatement) {
-    const tokenSlice = view.state.doc.slice(
-      maybeOpcodeStatement.from,
-      maybeOpcodeStatement.to,
-    );
-
-    const splitStatement = (tokenSlice as any).text[0].split(/\s/);
-    const result = splitStatement.reduce(
-      ({ cand, stop, lastComma }: LineReducer, curr: string) => {
-        if (stop) {
-          return {
-            cand,
-            stop,
-            lastComma,
-          };
-        } else {
-          if (curr.includes(',')) {
-            return {
-              cand: undefined,
-              stop: false,
-              lastComma: true,
-            };
-          } else if (lastComma) {
-            return {
-              cand: undefined,
-              stop: false,
-              lastComma: false,
-            };
-          } else {
-            const tokenExists = builtinOpcodes[curr] !== undefined;
-
-            return tokenExists
-              ? { cand: curr, stop: true, lastComma: true }
-              : { cand, stop: false, lastComma: false };
+      return tokenFull
+        ? {
+            token: tokenFull.replace(/:.*/, ''),
+            explicitRate: tokenFull.includes(':')
+              ? tokenFull.split(':').at(-1)?.replaceAll('[]', '')
+              : undefined,
+            isFunctionSyntax: false,
           }
-        }
-      },
-      { cand: undefined, stop: false, lastComma: false } as LineReducer,
-    );
+        : {};
+    }
 
-    return {
-      token: result.cand,
-      statement: tokenSlice,
-      treeNode: maybeOpcodeStatementNode,
-    };
+    node = node.parent;
   }
 
   return {};
@@ -166,37 +99,17 @@ const csoundInfoPanel: PanelConstructor = (view: EditorView) => {
         const treeRoot = syntaxTree(view.state).cursorAt(
           view.state.selection.main.head,
         );
-        const { token: operatorName, explicitRate } = findOperatorName(
-          view,
-          treeRoot,
-        );
-        const synopsis = operatorName && builtinOpcodes[operatorName];
-        const hasSynopsis =
-          Boolean(synopsis) &&
-          Array.isArray(synopsis.synopsis) &&
-          synopsis.synopsis.length > 0;
-        if (hasSynopsis) {
-          let isFunctionSyntax = false;
-          let foundExpressionType = false;
-          let currentNode = treeRoot.node.parent;
-
-          while (!foundExpressionType && currentNode) {
-            if (
-              ['CallbackExpression', 'ArgList'].includes(
-                currentNode.type.name || '',
-              )
-            ) {
-              isFunctionSyntax = true;
-              foundExpressionType = true;
-            } else if (currentNode.type.name === 'OpcodeStatement') {
-              isFunctionSyntax = false;
-              foundExpressionType = true;
-            }
-            currentNode = currentNode.parent;
-          }
-
+        const {
+          token: operatorName,
+          explicitRate,
+          isFunctionSyntax = false,
+        } = findOperatorName(view, treeRoot);
+        const synopsis = operatorName
+          ? builtinOpcodes[operatorName]
+          : undefined;
+        if (operatorName && synopsis && synopsis.synopsis.length > 0) {
           let resolvedSynopsis = synopsis.synopsis[0];
-          if (explicitRate && Array.isArray(synopsis.synopsis)) {
+          if (explicitRate) {
             for (const synop of synopsis.synopsis) {
               if (synop.startsWith(explicitRate)) {
                 resolvedSynopsis = synop;
@@ -221,98 +134,71 @@ const csoundInfo = () => {
   return showPanel.of(csoundInfoPanel);
 };
 
-function foldInstrInside(
-  node: SyntaxNode,
-): { from: number; to: number } | null {
-  let first = node.firstChild;
-  if (first?.nextSibling) {
-    first = first.nextSibling;
-  }
-  const last = node.lastChild;
-  return first && first.to < last!.from
-    ? { from: first.to, to: last!.type.isError ? node.to : last!.from }
-    : null;
+const parserWithProps = parser.configure({
+  props: [
+    csoundTags,
+    indentNodeProp.add({
+      InstrumentDefinition: continuedIndent({ except: /^\s*endin/ }),
+      LegacyUdo: continuedIndent({ except: /^\s*endop/ }),
+      ModernUdo: continuedIndent({ except: /^\s*endop/ }),
+      IfStatement: continuedIndent({
+        except: /^\s*(endif|fi|else|elseif)/,
+      }),
+      WhileLoop: continuedIndent({ except: /^\s*od/ }),
+      UntilLoop: continuedIndent({ except: /^\s*(od|enduntil)/ }),
+      ForLoop: continuedIndent({ except: /^\s*od/ }),
+      SwitchStatement: continuedIndent({
+        except: /^\s*(case|default|endsw)/,
+      }),
+    }),
+    foldNodeProp.add({
+      InstrumentDefinition: foldInside,
+      LegacyUdo: foldInside,
+      ModernUdo: foldInside,
+      IfStatement: foldInside,
+      WhileLoop: foldInside,
+      UntilLoop: foldInside,
+      ForLoop: foldInside,
+      SwitchStatement: foldInside,
+      ScoreNestableLoop: foldInside,
+      OptionsBlock: foldInside,
+      InstrumentsBlock: foldInside,
+      ScoreBlock: foldInside,
+      CabbageBlock: foldInside,
+    }),
+  ],
+});
+
+function makeLanguage(name: string, top: string) {
+  return LRLanguage.define({
+    name,
+    parser: parserWithProps.configure({ top }),
+    languageData: {
+      closeBrackets: { brackets: ['(', '[', '{', '"'] },
+      commentTokens: { line: ';', block: { open: '/*', close: '*/' } },
+    },
+  });
 }
 
-export const csdLanguage = LRLanguage.define({
-  parser: csdParser.configure({
-    props: [
-      csoundTags,
-      indentNodeProp.add({
-        InstrumentDeclaration: (context) =>
-          context.column(context.node.from) + context.unit,
-        UdoDeclaration: (context) =>
-          context.column(context.node.from) + context.unit,
-        ControlFlowStatement: (context) =>
-          context.column(context.node.from) + context.unit,
-      }),
-      foldNodeProp.add({
-        InstrumentDeclaration: foldInstrInside,
-        UdoDeclaration: foldInstrInside,
-        FoldableScoreStatement: foldInside,
-      }),
-    ],
-  }),
-  languageData: {
-    closeBrackets: { brackets: ['(', '[', '{', "'", '"'] },
-    commentTokens: { line: '//', block: { open: '/*', close: '*/' } },
-  },
-});
+export const csdLanguage = makeLanguage('csound-csd', 'CsdFile');
+export const orcLanguage = makeLanguage('csound-orc', 'OrchestraFile');
+export const scoLanguage = makeLanguage('csound-sco', 'ScoreFile');
 
-export const orcLanguage = LRLanguage.define({
-  parser: orcParser.configure({
-    props: [
-      csoundTags,
-      indentNodeProp.add({
-        InstrumentDeclaration: (context) =>
-          context.column(context.node.from) + context.unit,
-        UdoDeclaration: (context) =>
-          context.column(context.node.from) + context.unit,
-        ControlFlowStatement: (context) =>
-          context.column(context.node.from) + context.unit,
-      }),
-      foldNodeProp.add({
-        InstrumentDeclaration: foldInstrInside,
-        UdoDeclaration: foldInstrInside,
-      }),
-    ],
-  }),
+export const csoundCsdLanguage = csdLanguage;
+export const csoundOrcLanguage = orcLanguage;
+export const csoundScoLanguage = scoLanguage;
 
-  languageData: {
-    closeBrackets: { brackets: ['(', '[', '{', "'", '"'] },
-    commentTokens: { line: '//', block: { open: '/*', close: '*/' } },
-  },
-});
+const opcodeCompletion = ifIn(
+  [
+    'OrcStatements',
+    'OrcGenericLine',
+    'AssignmentStatement',
+    'FunctionCallExpr',
+  ],
+  completeFromList(Object.keys(builtinOpcodes)),
+);
 
-export const scoLanguage = LRLanguage.define({
-  parser: scoParser.configure({
-    props: [
-      csoundTags,
-      foldNodeProp.add({
-        FoldableScoreStatement: foldInside,
-      }),
-    ],
-  }),
-  languageData: {
-    closeBrackets: { brackets: ['(', '[', '{', "'", '"'] },
-    commentTokens: { line: '//', block: { open: '/*', close: '*/' } },
-  },
-});
-
-//,
-// const orchestraAutocompletion = autocompletion({
-//   activateOnTyping: true,
-//   selectOnOpen: true,
-// });
-
-const completionList = csdLanguage.data.of({
-  autocomplete: ifIn(
-    ['Orchestra'],
-    completeFromList(Object.keys(builtinOpcodes)),
-  ),
-});
-
-interface CsoundModeOptions {
+export interface CsoundModeOptions {
   enableCompletion?: boolean;
   enableSynopsis?: boolean;
   enableDefaultTheme?: boolean;
@@ -326,28 +212,39 @@ export function csoundMode(options?: CsoundModeOptions) {
     enableCompletion = true,
     enableDefaultTheme = true,
   } = options || {};
-  let selectedLanguageVariant = csdLanguage;
-  const features = [csoundModePlugin, indentUnit.of('  ')];
+  const selectedLanguageVariant =
+    fileType === 'orc'
+      ? orcLanguage
+      : fileType === 'sco'
+        ? scoLanguage
+        : csdLanguage;
+  const features: Extension[] = [csoundModePlugin, indentUnit.of('  ')];
 
   if (enableSynopsis) {
     features.push(csoundInfo());
   }
 
   if (enableCompletion) {
-    features.push(completionList);
+    features.push(
+      selectedLanguageVariant.data.of({ autocomplete: opcodeCompletion }),
+    );
   }
 
   if (enableDefaultTheme) {
     features.push(defaultCsoundLightTheme);
   }
 
-  if (fileType === 'orc') {
-    selectedLanguageVariant = orcLanguage;
-  }
-
-  if (fileType === 'sco') {
-    selectedLanguageVariant = scoLanguage;
-  }
-
   return new LanguageSupport(selectedLanguageVariant, features);
+}
+
+export interface CsoundLanguageConfig extends Omit<
+  CsoundModeOptions,
+  'fileType'
+> {
+  mode?: 'csd' | 'orc' | 'sco';
+}
+
+export function csound(config?: CsoundLanguageConfig) {
+  const { mode, ...options } = config ?? {};
+  return csoundMode({ ...options, fileType: mode });
 }
